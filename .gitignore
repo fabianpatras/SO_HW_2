@@ -1,2 +1,6 @@
 checker-lin/**
 checker-win/**
+.vscode/**
+*.in
+test_main.c
+main
