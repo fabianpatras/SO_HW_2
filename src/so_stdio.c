@@ -4,7 +4,7 @@
 #define BUFFER_SIZE (4096)
 
 struct _so_file{
-	/* buff[_left_ptr; _right_ptr) */
+	/* buff [ _left_ptr; _right_ptr ) */
 	/* is valid for reading/ writing */
 	char _buff[BUFFER_SIZE];
 
@@ -97,19 +97,29 @@ size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 int so_fgetc(SO_FILE *stream)
 {
 	int rc = 0;
-	int read_char = 0;
+	int read_character = 0;
 	int read_len = 0;
 
-	/* the buffer is empty and we have to read something from the actual
-	 * file from the disk 
+	/* the buffer is `empty` and we have to read something from the actual
+	 * file from the disk;
+	 *
+	 * everytime we try to read the whole buffer
+	 * 
+	 * whenever _left_ptr hits _right_ptr we reset _left_ptr to 0
+	 * because we will try to read as much as possible from one read
+	 * 
+	 * we avoid trying to fill up the buffer if _left_ptr == _right_ptr
+	 * > 0 because that read could be attempted with a size small enough
+	 * to not help us in the long run
 	 */
 	if (stream->_left_ptr == stream->_right_ptr) {
-		if (stream->_left_ptr == BUFFER_SIZE) {
-			stream->_left_ptr = 0;
-		} else {
-			// nothing yet
-		}
+		// if (stream->_left_ptr == BUFFER_SIZE) {
+		// 	stream->_left_ptr = 0;
+		// } else {
+		// 	// nothing yet
+		// }
 
+		stream->_left_ptr = 0;
 		read_len = BUFFER_SIZE - stream->_left_ptr;
 
 		rc = read(stream->_fd, stream->_buff, read_len);
@@ -117,14 +127,17 @@ int so_fgetc(SO_FILE *stream)
 			return SO_EOF;
 		stream->_right_ptr = stream->_left_ptr + rc;
 		stream->_file_offset += rc;
-		// printf("Am citit cu un read [%d] bytes.\n", rc);
 	}
 
-	read_char = stream->_buff[stream->_left_ptr];
+	/* _left_ptr is only incremented by one
+	 *
+	 */
+
+	read_character = (unsigned char)stream->_buff[stream->_left_ptr];
 	stream->_left_ptr++;
 	stream->_last_op = READ_OP;
 
-	return read_char;
+	return read_character;
 }
 
 int so_fputc(int c, SO_FILE *stream)
