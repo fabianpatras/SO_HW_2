@@ -4,3 +4,4 @@ checker-win/**
 *.in
 test_main.c
 main
+main_test

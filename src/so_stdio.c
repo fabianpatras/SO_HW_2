@@ -23,6 +23,12 @@ struct _so_file{
 	/* buffer right offset */
 	int _right_ptr;
 
+	/* if this is set to non-zero value then somewthing went wrong */
+	int _err;
+
+	/* if this is set to non-zero value then EOF was reached */
+	int _eof;
+
 };
 
 SO_FILE *so_fopen(const char *pathname, const char *mode)
@@ -85,8 +91,45 @@ long so_ftell(SO_FILE *stream)
 }
 
 size_t so_fread(void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
-{
-	return 0;
+{	
+	size_t items_read = 0;
+	unsigned char read_byte = 0;
+	char *buff = calloc(size, sizeof(char));
+
+	if (!buff) {
+		stream->_err = 1;
+		return 0;
+	}
+
+	/* so we attempt to read each and every byte with so_fgetc
+	 *
+	 */
+	for (items_read = 0; items_read < nmemb; items_read++) {
+		for (size_t j = 0; j < size; j++) {
+			
+			read_byte = so_fgetc(stream);
+			if (read_byte == SO_EOF) {
+				//printf("so_fread: EOF la [%d]\n", items_read);
+				// if (so_feof(stream)) {
+				// 	printf("\n<<EOF>>\n");
+				// } else if (so_ferror(stream)) {
+				// 	printf("\nERR\n");
+				// }
+				goto exit_so_fread;
+			}
+			buff[j] = read_byte;
+			// printf("[%c]", buff[j]);
+		}
+
+		memcpy(ptr + items_read * size, buff, size);
+		// printf("itm: <%d>\n", items_read);
+	}
+
+exit_so_fread:
+	free(buff);
+	stream->_last_op = READ_OP;
+	// printf("return: [%d]\n", items_read);
+	return items_read;
 }
 
 size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
@@ -99,6 +142,13 @@ int so_fgetc(SO_FILE *stream)
 	int rc = 0;
 	int read_character = 0;
 	int read_len = 0;
+
+
+	if (stream->_last_op == WRITE_OP) {
+		// TODO: flush the buffer
+		printf("\n\n\tidk bruh\n\n\n\n");
+		return SO_EOF;
+	}
 
 	/* the buffer is `empty` and we have to read something from the actual
 	 * file from the disk;
@@ -121,10 +171,15 @@ int so_fgetc(SO_FILE *stream)
 
 		stream->_left_ptr = 0;
 		read_len = BUFFER_SIZE - stream->_left_ptr;
-
 		rc = read(stream->_fd, stream->_buff, read_len);
-		if (rc == -1 || rc == 0)
+		// printf("citim [%d] primim [%d]\n", read_len, rc);
+		if (rc == -1) {
+			stream->_err = 1;
 			return SO_EOF;
+		} else if (rc == 0) {
+			stream->_eof = 1;
+			return SO_EOF;
+		}
 		stream->_right_ptr = stream->_left_ptr + rc;
 		stream->_file_offset += rc;
 	}
@@ -132,11 +187,9 @@ int so_fgetc(SO_FILE *stream)
 	/* _left_ptr is only incremented by one
 	 *
 	 */
-
 	read_character = (unsigned char)stream->_buff[stream->_left_ptr];
 	stream->_left_ptr++;
 	stream->_last_op = READ_OP;
-
 	return read_character;
 }
 
@@ -147,12 +200,12 @@ int so_fputc(int c, SO_FILE *stream)
 
 int so_feof(SO_FILE *stream)
 {
-	return 0;
+	return stream->_eof;
 }
 
 int so_ferror(SO_FILE *stream)
 {
-	return 0;
+	return stream->_err;
 }
 
 SO_FILE *so_popen(const char *command, const char *type)
