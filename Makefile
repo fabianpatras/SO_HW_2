@@ -15,10 +15,10 @@ test:
 	cp libso_stdio.so checker-lin/
 	cd checker-lin/ && make -f Makefile.checker
 
-main_test: $(OBJ) test_main.c
+main: $(OBJ) test_main.c
 	$(CC) $(FLAGS) $^ -o $@
 
 clean:
 	rm -rf *.o libso_stdio.so
 	rm -f checker-lin/libso_stdio.so
-	rm -f main_test
+	rm -f main_test main
