@@ -124,7 +124,7 @@ long so_ftell(SO_FILE *stream)
 size_t so_fread(void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 {	
 	size_t items_read = 0;
-	unsigned char read_byte = 0;
+	int read_byte = 0;
 	char *buff = calloc(size, sizeof(char));
 
 	if (!buff) {
@@ -140,31 +140,26 @@ size_t so_fread(void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 			
 			read_byte = so_fgetc(stream);
 			if (read_byte == SO_EOF) {
-				//printf("so_fread: EOF la [%d]\n", items_read);
-				// if (so_feof(stream)) {
-				// 	printf("\n<<EOF>>\n");
-				// } else if (so_ferror(stream)) {
-				// 	printf("\nERR\n");
-				// }
 				goto exit_so_fread;
 			}
-			buff[j] = read_byte;
-			// printf("[%c]", buff[j]);
+			buff[j] = (char)read_byte;
 		}
 
 		memcpy(ptr + items_read * size, buff, size);
-		// printf("itm: <%d>\n", items_read);
 	}
 
 exit_so_fread:
 	free(buff);
 	stream->_last_op = READ_OP;
-	// printf("return: [%d]\n", items_read);
 	return items_read;
 }
 
 size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
-{
+{	
+
+	((char*)ptr)[0] = '\0';
+	
+
 	return 0;
 }
 
