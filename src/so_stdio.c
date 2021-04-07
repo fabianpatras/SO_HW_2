@@ -156,11 +156,27 @@ exit_so_fread:
 
 size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 {	
+	size_t i = 0;
+	size_t j = 0;
+	int rc = 0;
+	unsigned char data = 0;
 
-	((char*)ptr)[0] = '\0';
-	
+	if (stream->_last_op == READ_OP) {
+		printf("\n\n\tidk bruh\n\n\n\n");
+	}
 
-	return 0;
+	for (i = 0; i < nmemb; i++) {
+		for (j = 0; j < size; j++) {
+			data = ((unsigned char*)ptr)[i * size + j];
+			rc = so_fputc((int)data, stream);
+
+			if (rc == SO_EOF) {
+				return i;
+			}	
+		}
+	}
+
+	return nmemb;
 }
 
 int so_fgetc(SO_FILE *stream)

@@ -21,4 +21,4 @@ main: $(OBJ) test_main.c
 clean:
 	rm -rf *.o libso_stdio.so
 	rm -f checker-lin/libso_stdio.so
-	rm -f main_test main
+	rm -f main_test main test.in fisier
