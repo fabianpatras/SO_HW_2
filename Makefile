@@ -15,6 +15,9 @@ test:
 	cp libso_stdio.so checker-lin/
 	cd checker-lin/ && make -f Makefile.checker
 
+cp:
+	cp libso_stdio.so checker-lin/
+
 main: $(OBJ) test_main.c
 	$(CC) $(FLAGS) $^ -o $@
 

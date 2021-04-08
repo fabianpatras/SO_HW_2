@@ -5,3 +5,4 @@ checker-win/**
 test_main.c
 main
 main_test
+*.zip
