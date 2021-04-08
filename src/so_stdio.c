@@ -4,7 +4,7 @@
 #define BUFFER_SIZE (4096)
 
 struct _so_file{
-	/* buff [ _left_ptr; _right_ptr ) */
+	/* buff [ _left_ptr ; _right_ptr ) */
 	/* is valid for reading/ writing */
 	char _buff[BUFFER_SIZE];
 
@@ -15,7 +15,7 @@ struct _so_file{
 	int _last_op;
 
 	/* file system file offset  relative to the beginning */
-	int _file_offset;
+	off_t _file_offset;
 
 	/* buffer left offset*/
 	int _left_ptr;
@@ -28,6 +28,9 @@ struct _so_file{
 
 	/* if this is set to non-zero value then EOF was reached */
 	int _eof;
+
+	/* pid of process if SO_FILE is associated with a process */
+	pid_t pid;
 };
 
 SO_FILE *so_fopen(const char *pathname, const char *mode)
@@ -56,18 +59,18 @@ SO_FILE *so_fopen(const char *pathname, const char *mode)
 	return fp;
 }
 
-/*
- * closes the stream
- *
- */
 int so_fclose(SO_FILE *stream)
 {
-	so_fflush(stream);
-
-	if (close(stream->_fd) == -1)
-		return -1;
+	int rc1 = 0;
+	int rc2 = 0;
+	rc1 = so_fflush(stream);
+	rc2 = close(stream->_fd);
 
 	free(stream);
+	if (rc1 == -1 || rc2 == -1) {
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -83,6 +86,7 @@ int so_fflush(SO_FILE *stream)
 
 	if (stream->_last_op == READ_OP) {
 		// printf("[fflush]: after READ_OP??\n");
+		goto so_fflush_end;
 	}
 
 	/* best effort to write to the disk
@@ -99,9 +103,11 @@ int so_fflush(SO_FILE *stream)
 			printf("[fputc]: we wrote 0 bytes, we are stuck\n");
 		} else {
 			stream->_left_ptr += rc;
+			stream->_file_offset += rc;
 		}
 	}
 
+so_fflush_end:
 	/* flushing the buffer should cound as a NONE_OP
 	 * and we reset the pointers
 	 */
@@ -113,12 +119,61 @@ int so_fflush(SO_FILE *stream)
 
 int so_fseek(SO_FILE *stream, long offset, int whence)
 {
+	off_t ret_offset = -1;
+	off_t delta = 0;
+	int rc = 0;
+
+
+
+	/* checking if we have to invalidate the internal buffer or to
+	 * flush it
+	 */
+	if (stream->_last_op == READ_OP) {
+		/* if the last op was a read op and the buffer is not empty
+		 * then there was something read from the file descriptor
+		 * and the lseek would return a value that is not the true
+		 * location of the disk (fd) file offset
+		 */
+		if (stream->_left_ptr < stream->_right_ptr) {
+			delta = stream->_right_ptr - stream->_left_ptr;
+			stream->_left_ptr = 0;
+			stream->_right_ptr = 0;
+		}
+	} else if (stream->_last_op == WRITE_OP) {
+		rc = so_fflush(stream);
+		if (rc == SO_EOF) {
+			return -1;
+		}
+	}
+
+	if (whence == SEEK_SET || whence == SEEK_END) {
+		ret_offset = lseek(stream->_fd, offset, whence);
+	} else if (whence == SEEK_CUR) {
+		/* in this case we'll have to take into account the delta
+		 * that might be > 0 from the fact the the buffer still had
+		 * some data available in the buffer from an old read
+		 */
+		ret_offset = lseek(stream->_fd, offset - delta, whence);
+	}
+	if (ret_offset == (off_t)-1) {
+		stream->_err = 1;
+		return -1;
+	}
+	stream->_file_offset = ret_offset;
+
+
 	return 0;
 }
 
 long so_ftell(SO_FILE *stream)
 {
-	return 0;
+	int rc = so_fseek(stream, 0, SEEK_CUR);
+
+	if (rc == 0) {
+		return lseek(stream->_fd, 0, SEEK_CUR);
+	}
+
+	return -1;
 }
 
 size_t so_fread(void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
@@ -165,6 +220,8 @@ size_t so_fwrite(const void *ptr, size_t size, size_t nmemb, SO_FILE *stream)
 		printf("\n\n\tidk bruh\n\n\n\n");
 	}
 
+	stream->_last_op = WRITE_OP;
+
 	for (i = 0; i < nmemb; i++) {
 		for (j = 0; j < size; j++) {
 			data = ((unsigned char*)ptr)[i * size + j];
@@ -191,6 +248,8 @@ int so_fgetc(SO_FILE *stream)
 		printf("\n\n\tidk bruh\n\n\n\n");
 		return SO_EOF;
 	}
+
+	stream->_last_op = READ_OP;
 
 	/* the buffer is `empty` and we have to read something from the actual
 	 * file from the disk;
@@ -267,7 +326,7 @@ int so_fputc(int c, SO_FILE *stream)
 		}
 	}
 
-
+	stream->_last_op = WRITE_OP;
 
 	return c;
 }
@@ -284,6 +343,28 @@ int so_ferror(SO_FILE *stream)
 
 SO_FILE *so_popen(const char *command, const char *type)
 {
+	pid_t pid;
+	SO_FILE *fp;
+	int pipe_fd[2];
+	int rc = 0;
+
+	pid = fork();
+
+	if (pid == -1) {
+		return NULL;
+	} else if (pid == 0) {
+		// child process
+		rc = execlp("sh", "sh", "-c", command, NULL);
+		if (rc == -1) {
+			return -1;
+		}
+	} else {
+		fp = calloc(1, sizeof(SO_FILE));
+		if (!fp)
+			return NULL;
+	}
+
+
 	return NULL;
 }
 
