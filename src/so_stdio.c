@@ -128,8 +128,6 @@ int so_fseek(SO_FILE *stream, long offset, int whence)
 	off_t delta = 0;
 	int rc = 0;
 
-
-
 	/* checking if we have to invalidate the internal buffer or to
 	 * flush it
 	 */

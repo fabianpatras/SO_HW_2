@@ -14,8 +14,7 @@
 enum op {
 	NONE_OP,
 	READ_OP,
-	WRITE_OP,
-	MOVE_OP
+	WRITE_OP
 };
 
 
